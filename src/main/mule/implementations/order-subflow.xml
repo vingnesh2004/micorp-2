@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:json-logger="http://www.mulesoft.org/schema/mule/json-logger"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd 
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/json-logger http://www.mulesoft.org/schema/mule/json-logger/current/mule-json-logger.xsd">
+	
+	
+	  <sub-flow name="creat-order-sub-flow" doc:id="c999efd5-0e01-4334-b0a7-4fabf20ffd55" >
+		<set-variable value="#[payload]" doc:name="complete-payload" doc:id="8a156263-b30c-4e02-b748-16c54e14cb47" variableName="complete_payload" />
+		<ee:transform doc:name="ceate-variables" doc:id="c64e5f51-2a0a-4718-95fa-0087af7c811e">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    poNumber: payload.orderData.poNumber,
+    signatureRequiredFlag: payload.orderData.signatureRequiredFlag,
+    shipInstructions: payload.orderData.shipInstructions,
+    giftWrapFlag: payload.orderData.giftWrapFlag,
+    giftWrapMessage: payload.orderData.giftWrapMessage,
+    currencyCode: payload.orderData.currencyCode,
+    subTotal: payload.orderData.subTotal,
+    customer: payload.customer.email
+}
+]]></ee:set-payload>
+			</ee:message>
+			<ee:variables>
+				<ee:set-variable variableName="acess"><![CDATA[%dw 2.0
+output application/json
+---
+{
+	Client_ID:attributes.headers.Client_ID,
+	Client_Secret: attributes.headers.Client_Secret
+}]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<http:request method="POST" doc:name="create-order" doc:id="33704c96-a657-4751-a223-4f2bf08ec972" url="${base.url}/order">
+			<http:headers><![CDATA[#[output application/java
+			---
+{
+	"correlation-id" : vars.corelationId,
+	Client_ID: vars.acess.Client_ID,
+	Client_Secret: vars.acess.Client_Secret
+}]]]></http:headers>
+		</http:request>
+		<json-logger:logger doc:name="Logger" doc:id="e002c7a5-4034-4677-b51d-6508b27f9a7e" config-ref="JSON_Logger_Config1" message='#["Order created "]' />
+		<ee:transform doc:name="Transform Message" doc:id="04666e33-8ff8-4095-9cfc-e8f606a1d5d4">
+			<ee:message>
+				<ee:set-payload><![CDATA[payload]]></ee:set-payload>
+			</ee:message>
+			<ee:variables>
+				<ee:set-variable variableName="orderid"><![CDATA[payload.orderID]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<json-logger:logger doc:name="start-logger" doc:id="bd29f17a-f7c8-476f-97df-d7f45b2fa7ee" message='#[flow.name ++ "started"]' config-ref="JSON_Logger_Config1"/>
+		<set-variable value="#[payload.orderID]" doc:name="store-order-iD" doc:id="f836cc81-03a7-4a37-b6b1-56b5ad3dc546" variableName="orderId" />
+		<foreach doc:name="For Each" doc:id="1c8df04a-0b4a-4cbb-a3ae-230fc2696bb0">
+			<choice doc:name="order-check" doc:id="949db290-a8b1-462e-8022-657932e899a9">
+			<when expression='#[vars.orderId != ""]'>
+				<flow-ref doc:name="creat-customer" doc:id="95e87fc9-ea71-4f4a-8c07-c59af38d2734" name="customer-sub-flow" />
+				<flow-ref doc:name="add-item" doc:id="2b88ebd4-3a14-49f8-bc03-54e5190725b8" name="create-item-flow" />
+			</when>
+			<otherwise>
+					<json-logger:logger doc:name="Logger" doc:id="43e7f5db-ad32-447f-9b3a-80f4becdf42a" config-ref="JSON_Logger_Config1" message='#["Oreder is already created"]'/>
+			
+</otherwise>
+		</choice>
+			<ee:transform doc:name="Transform Message">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  message: payload.message,
+  orderId: payload.orderID,
+  correlationId: vars.corelationId
+} as Object {encoding: "UTF-8", mediaType: "application/json"}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+			<json-logger:logger doc:name="end-logger" doc:id="ad9b7a68-eee7-437c-a1a1-f5abe41433aa" config-ref="JSON_Logger_Config1" message='#[flow.name ++ "Ended"]'/>
+		
+
+</foreach>
+	</sub-flow>
+	
+	
+	
+	
+	
+	
+    
+	
+	
+	</mule>

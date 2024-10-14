@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:json-logger="http://www.mulesoft.org/schema/mule/json-logger"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd 
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/json-logger http://www.mulesoft.org/schema/mule/json-logger/current/mule-json-logger.xsd">
+	
+	
+	<sub-flow name="customer-sub-flow" doc:id="926c1c61-5dbb-4bda-b1db-df93afe9fe1d" >
+		<json-logger:logger doc:name="start-logger" doc:id="09019c30-41f0-4d64-93f0-6b67fd7acb1b" message='flow.name ++ "started"' config-ref="JSON_Logger_Config1"/>
+		<ee:transform doc:name="Transform Message" doc:id="38f7e5e9-ac7a-47d3-9a61-704e61862cd8">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/java
+---
+vars.complete_payload.customer.email]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+		<http:request method="GET" doc:name="check-customer" doc:id="bed300a3-ad0c-416b-8a58-780bb7ec7c0d" url="${base.url}/customer">
+			<http:headers ><![CDATA[#[output application/java
+			---
+{
+	Client_ID: vars.acess.Client_ID,
+	Client_Secret: vars.acess.Client_Secret
+}]]]></http:headers>
+			<http:query-params><![CDATA[#[output application/java
+---
+{
+	"email" : payload
+}]]]></http:query-params>
+		</http:request>
+		<choice doc:name="customer Existence" doc:id="5fc349ab-9d62-4d35-96fc-5f270a53b018">
+			<when expression="sizeOf(payload) == 0">
+				<ee:transform doc:name="Transform Message" doc:id="f0fd6aa6-9128-4dc5-9572-bd6c53302b12">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+
+vars.complete_payload.customer ++ {"orderId": vars.orderId as String}
+
+
+
+
+
+
+
+]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<http:request method="POST" doc:name="create-customer" doc:id="0d13c03d-aeef-4e9b-981c-7878566db050" url="${base.url}/customer" >
+					<http:headers ><![CDATA[#[output application/java
+			---
+{
+	Client_ID: vars.acess.Client_ID,
+	Client_Secret: vars.acess.Client_Secret
+}]]]></http:headers>
+				</http:request>
+				<ee:transform doc:name="Transform Message" doc:id="c4e630c4-f60c-4c23-a609-3c91d1a47bc4">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/java
+---
+payload]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</when>
+			<otherwise>
+				<json-logger:logger doc:name="Logger" doc:id="f7b702c9-ddd7-4529-a174-14925bdac10e" config-ref="JSON_Logger_Config1" message='#["Customer is already created"]'/>
+			
+</otherwise>
+		</choice>
+		<json-logger:logger doc:name="end-logger" doc:id="0773251a-4808-4d0e-b7ea-cd493f8ad1cd" message='flow.name ++ "Ended"' config-ref="JSON_Logger_Config1"/>
+	</sub-flow>
+	
+	
+	
+	
+	
+	
+	
+	</mule>

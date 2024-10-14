@@ -1,0 +1,18 @@
+http:
+  port: "8081"
+
+
+mule:
+  env: "development"
+
+
+json:
+  logger:
+    application:
+      name: "micorp-processapi"
+      version: "1.0.0-SNAPSHOT"
+
+
+base:
+  url: "http://vmicorp-sys-api.us-e1.cloudhub.io/micorp/run"
+      

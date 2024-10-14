@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:secure-properties="http://www.mulesoft.org/schema/mule/secure-properties" xmlns:module-error-handler-plugin="http://www.mulesoft.org/schema/mule/module-error-handler-plugin" xmlns:json-logger="http://www.mulesoft.org/schema/mule/json-logger" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd 
+http://www.mulesoft.org/schema/mule/json-logger http://www.mulesoft.org/schema/mule/json-logger/current/mule-json-logger.xsd
+http://www.mulesoft.org/schema/mule/module-error-handler-plugin http://www.mulesoft.org/schema/mule/module-error-handler-plugin/current/mule-module-error-handler-plugin.xsd
+http://www.mulesoft.org/schema/mule/secure-properties http://www.mulesoft.org/schema/mule/secure-properties/current/mule-secure-properties.xsd">
+    <http:listener-config name="vmicorp-papi-httpListenerConfig" basePath="micorp">
+        <http:listener-connection host="0.0.0.0" port="8081" />
+    </http:listener-config>
+    <apikit:config name="vmicorp-papi-config" api="resource::ce235d46-115c-497c-b0e2-474afd80f5e9:vmicorp-papi:1.0.0:raml:zip:vmicorp-papi.raml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" />
+    <configuration-properties doc:name="Configuration properties" doc:id="26b44ecb-40ce-4cdd-ab84-81a92937d5a6" file="properties/${env}.yaml" />
+	<json-logger:config name="JSON_Logger_Config1" doc:name="JSON Logger Config" doc:id="db378f97-1b23-40d4-863d-76ea7cd09473" environment="${mule.env}" />
+	<secure-properties:config name="Secure_Properties_Config" doc:name="Secure Properties Config" doc:id="a6be221d-039a-414b-a4bc-a0171772cc5a" file="properties/${env}.yaml" key="${key}" />
+	<flow name="vmicorp-papi-main">
+        <http:listener config-ref="vmicorp-papi-httpListenerConfig" path="/run/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers><![CDATA[#[vars.outboundHeaders default {}]]]></http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body><![CDATA[#[error.detailedDescription]]]></http:body>
+                <http:headers><![CDATA[#[vars.outboundHeaders default {}]]]></http:headers>
+            </http:error-response>
+        </http:listener>
+        <ee:transform doc:name="Transform Message" doc:id="82ece4a2-7d2f-4ba5-adce-b113ee889ea8" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="crid" ><![CDATA[%dw 2.0
+output application/json
+---
+"correaltionid" : if((attributes.headers.corrid)!= null)attributes.headers.corrid else uuid() ]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<apikit:router config-ref="vmicorp-papi-config" />
+        <error-handler>
+			<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="f6c19dc7-5ea1-437c-b1ec-6635c7b8b329" >
+				<module-error-handler-plugin:process-error doc:name="Process Error" doc:id="4c13c79a-dfef-408a-a31b-abe0fca9cfa5" />
+			</on-error-continue>
+        </error-handler>
+    </flow>
+    
+    
+    	<flow name="get:\healthcheck:vmicorp-papi-config">
+		<json-logger:logger doc:name="Logger" doc:id="c8ccb64e-f126-4b3e-90ae-a74373b6b120" config-ref="JSON_Logger_Config1" message='"health check is started"'/>
+		<ee:transform doc:name="Transform Message">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  correlationId: vars.crid.correaltionid,
+  message: "MiCorp Process API is Alive and Running"
+} as Object {encoding: "UTF-8", mediaType: "application/json"}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+		<json-logger:logger doc:name="Logger" doc:id="3ed2f29d-32d7-4a50-bda2-0c2ecff2ee46" config-ref="JSON_Logger_Config1" message='#["the healt check ended"]' tracePoint="FLOW"/>
+    </flow>
+    
+    <flow name="post:\order:application\json:vmicorp-papi-config">
+        <json-logger:logger doc:name="start-logger" doc:id="899a64c2-221a-4e9d-bf13-c0146ec92ab7" config-ref="JSON_Logger_Config1" message='#[flow.name ++ "started"]'/>
+		<flow-ref doc:name="Flow Reference" doc:id="a8c31f78-e7c9-4ad0-ad6b-1da399903693" name="creat-order-sub-flow"/>
+		<ee:transform doc:name="Transform Message">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  message: "Order created Succesfully",
+  orderId: vars.orderid,
+} as Object {encoding: "UTF-8", mediaType: "application/json"}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+		<json-logger:logger doc:name="end-logger" doc:id="8e0d7546-3849-419a-99d9-b06f97333660" config-ref="JSON_Logger_Config1" message='#[flow.name ++ "Ended"]'/>
+    </flow>
+    
+    
+    
+</mule>
