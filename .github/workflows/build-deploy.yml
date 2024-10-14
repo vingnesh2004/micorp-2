@@ -57,4 +57,3 @@ jobs:
         mvn clean install
         mvn deploy -DmuleDeploy -Danypoint.username=$ANYPOINT_USERNAME -Danypoint.password=$ANYPOINT_PASSWORD -Dcloudhub.application.name=papi -Dregion=us-east-2 -Denvironment=dev 
         -X -e
-Update build-deploy.yml · vingnesh2004/micorp-1@3237c44 
